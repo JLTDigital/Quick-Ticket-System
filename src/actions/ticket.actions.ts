@@ -1,5 +1,7 @@
 'use server'
 import * as Sentry from '@sentry/nextjs'
+import { prisma } from '@/db/prisma'
+import { revalidatePath } from 'next/cache'
 
 export async function createTicket(
   prevState: { success: boolean; message: string },
@@ -17,6 +19,25 @@ export async function createTicket(
       )
       return { success: false, message: 'All fields are required' }
     }
+
+    // Create Ticket
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject,
+        description,
+        priority
+      }
+    })
+
+    Sentry.addBreadcrumb({
+      category: 'ticket',
+      message: `Ticket created with ID: ${ticket.id}`,
+      level: 'info'
+    })
+
+    Sentry.captureMessage(`Ticket created successfully: ${ticket.id}`)
+    revalidatePath('/tickets')
+
     return { success: true, message: 'Ticket created successfully' }
   } catch (error) {
     Sentry.captureException(error as Error, {
